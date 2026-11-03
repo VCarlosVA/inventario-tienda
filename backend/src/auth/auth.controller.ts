@@ -31,9 +31,18 @@ export class AuthController {
     return this.auth.register(dto);
   }
 
+  @Get('captcha')
+  @ApiOperation({
+    summary: 'Generar un CAPTCHA nuevo (4 caracteres, vigente 2 minutos, un solo uso)',
+  })
+  captcha() {
+    return this.auth.generarCaptcha();
+  }
+
   @Post('login')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Iniciar sesión y obtener el token JWT' })
+  @ApiResponse({ status: 400, description: 'CAPTCHA incorrecto o vencido, o datos inválidos' })
   @ApiResponse({ status: 401, description: 'Correo o contraseña incorrectos' })
   @ApiResponse({
     status: 423,

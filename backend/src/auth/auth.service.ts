@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ConflictException,
   HttpException,
   Injectable,
@@ -8,6 +9,7 @@ import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { compare, hash, hashSync } from 'bcryptjs';
 import { UsuariosService } from '../usuarios/usuarios.service';
+import { CaptchaService } from './captcha.service';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
 import { evaluarFortaleza } from './password-strength';
@@ -33,9 +35,14 @@ export class AuthService {
     private readonly usuarios: UsuariosService,
     private readonly jwt: JwtService,
     private readonly config: ConfigService,
+    private readonly captcha: CaptchaService,
   ) {
     this.maxIntentos = Number(config.get('LOGIN_MAX_INTENTOS') ?? 3);
     this.minutosBloqueo = Number(config.get('LOGIN_BLOQUEO_MINUTOS') ?? 5);
+  }
+
+  generarCaptcha() {
+    return this.captcha.generar();
   }
 
   async register(dto: RegisterDto) {
@@ -72,12 +79,19 @@ export class AuthService {
   }
 
   async login(dto: LoginDto) {
+    // 1) El CAPTCHA se comprueba primero. Si falla, no se mira la contraseña
+    //    y NO cuenta como intento fallido para el bloqueo de la cuenta.
+    if (!this.captcha.validar(dto.captchaId, dto.captchaTexto)) {
+      throw new BadRequestException(
+        'CAPTCHA incorrecto o vencido. Solicita uno nuevo.',
+      );
+    }
+
     const usuario = await this.usuarios.findByCorreoConPassword(dto.correo);
 
     if (usuario) {
       await this.usuarios.liberarSiVencido(usuario.id);
       const segundos = await this.usuarios.segundosDeBloqueo(usuario.id);
-      // Mientras dure el bloqueo se rechaza, incluso con la contraseña correcta
       if (segundos > 0) throw this.cuentaBloqueada(segundos);
     }
 

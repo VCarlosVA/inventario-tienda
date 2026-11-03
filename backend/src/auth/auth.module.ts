@@ -4,6 +4,7 @@ import { JwtModule } from '@nestjs/jwt';
 import { UsuariosModule } from '../usuarios/usuarios.module';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
+import { CaptchaService } from './captcha.service';
 import { JwtAuthGuard } from './jwt-auth.guard';
 
 @Module({
@@ -20,8 +21,7 @@ import { JwtAuthGuard } from './jwt-auth.guard';
     }),
   ],
   controllers: [AuthController],
-  providers: [AuthService, JwtAuthGuard],
-  // Se exportan para que otros módulos (productos, movimientos...) puedan proteger sus rutas
+  providers: [AuthService, CaptchaService, JwtAuthGuard],
   exports: [JwtModule, JwtAuthGuard, UsuariosModule],
 })
 export class AuthModule {}
