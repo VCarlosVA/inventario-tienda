@@ -7,7 +7,12 @@ import {
   Post,
   UseGuards,
 } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import {
+  ApiBearerAuth,
+  ApiOperation,
+  ApiResponse,
+  ApiTags,
+} from '@nestjs/swagger';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
@@ -29,6 +34,12 @@ export class AuthController {
   @Post('login')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Iniciar sesión y obtener el token JWT' })
+  @ApiResponse({ status: 401, description: 'Correo o contraseña incorrectos' })
+  @ApiResponse({
+    status: 423,
+    description:
+      'Cuenta bloqueada tras 3 intentos fallidos. Indica el tiempo restante',
+  })
   login(@Body() dto: LoginDto) {
     return this.auth.login(dto);
   }

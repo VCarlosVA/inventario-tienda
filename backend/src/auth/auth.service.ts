@@ -1,5 +1,6 @@
 import {
   ConflictException,
+  HttpException,
   Injectable,
   UnauthorizedException,
 } from '@nestjs/common';
@@ -15,13 +16,27 @@ const COSTO_BCRYPT = 10;
 // Hash de relleno: así el login tarda lo mismo exista o no el correo
 const HASH_RELLENO = hashSync('relleno-anti-timing', COSTO_BCRYPT);
 
+function tiempoLegible(segundos: number): string {
+  if (segundos >= 60) {
+    const minutos = Math.ceil(segundos / 60);
+    return `${minutos} ${minutos === 1 ? 'minuto' : 'minutos'}`;
+  }
+  return `${segundos} ${segundos === 1 ? 'segundo' : 'segundos'}`;
+}
+
 @Injectable()
 export class AuthService {
+  private readonly maxIntentos: number;
+  private readonly minutosBloqueo: number;
+
   constructor(
     private readonly usuarios: UsuariosService,
     private readonly jwt: JwtService,
     private readonly config: ConfigService,
-  ) {}
+  ) {
+    this.maxIntentos = Number(config.get('LOGIN_MAX_INTENTOS') ?? 3);
+    this.minutosBloqueo = Number(config.get('LOGIN_BLOQUEO_MINUTOS') ?? 5);
+  }
 
   async register(dto: RegisterDto) {
     if (await this.usuarios.findByCorreo(dto.correo)) {
@@ -58,15 +73,36 @@ export class AuthService {
 
   async login(dto: LoginDto) {
     const usuario = await this.usuarios.findByCorreoConPassword(dto.correo);
+
+    if (usuario) {
+      await this.usuarios.liberarSiVencido(usuario.id);
+      const segundos = await this.usuarios.segundosDeBloqueo(usuario.id);
+      // Mientras dure el bloqueo se rechaza, incluso con la contraseña correcta
+      if (segundos > 0) throw this.cuentaBloqueada(segundos);
+    }
+
     const coincide = await compare(
       dto.password,
       usuario?.password ?? HASH_RELLENO,
     );
 
-    // Mensaje único: no revela si el correo existe o si falló la contraseña
     if (!usuario || !coincide) {
+      if (usuario) {
+        const { bloqueado } = await this.usuarios.registrarFalloLogin(
+          usuario.id,
+          this.maxIntentos,
+          this.minutosBloqueo,
+        );
+        if (bloqueado) {
+          throw this.cuentaBloqueada(
+            await this.usuarios.segundosDeBloqueo(usuario.id),
+          );
+        }
+      }
       throw new UnauthorizedException('Correo o contraseña incorrectos');
     }
+
+    await this.usuarios.reiniciarIntentos(usuario.id);
 
     const access_token = await this.jwt.signAsync({
       sub: usuario.id,
@@ -87,5 +123,17 @@ export class AuthService {
         rol: usuario.rol,
       },
     };
+  }
+
+  private cuentaBloqueada(segundos: number) {
+    return new HttpException(
+      {
+        statusCode: 423,
+        error: 'Locked',
+        message: `Cuenta bloqueada por demasiados intentos fallidos. Intenta de nuevo en ${tiempoLegible(segundos)}.`,
+        segundosRestantes: segundos,
+      },
+      423,
+    );
   }
 }
