@@ -10,6 +10,8 @@ import { AdministracionModule } from './administracion/administracion.module';
 import { ProductosModule } from './productos/productos.module';
 import { ProveedoresModule } from './proveedores/proveedores.module';
 import { MovimientosModule } from './movimientos/movimientos.module';
+import { EstadisticasModule } from './estadisticas/estadisticas.module';
+import { ReportesModule } from './reportes/reportes.module';
 
 @Module({
   imports: [
@@ -34,6 +36,8 @@ import { MovimientosModule } from './movimientos/movimientos.module';
     ProveedoresModule,
     ProductosModule,
     MovimientosModule,
+    EstadisticasModule,
+    ReportesModule,
   ],
   controllers: [AppController],
   providers: [AppService],
