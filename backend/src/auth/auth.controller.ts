@@ -15,15 +15,21 @@ import {
 } from '@nestjs/swagger';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
+import { OlvidePasswordDto } from './dto/olvide-password.dto';
 import { RegisterDto } from './dto/register.dto';
+import { RestablecerPasswordDto } from './dto/restablecer-password.dto';
 import { JwtAuthGuard } from './jwt-auth.guard';
 import type { UsuarioAutenticado } from './jwt-auth.guard';
+import { RecuperacionService } from './recuperacion.service';
 import { UsuarioActual } from './usuario-actual.decorator';
 
 @ApiTags('Autenticación')
 @Controller('auth')
 export class AuthController {
-  constructor(private readonly auth: AuthService) {}
+  constructor(
+    private readonly auth: AuthService,
+    private readonly recuperacion: RecuperacionService,
+  ) {}
 
   @Post('register')
   @ApiOperation({ summary: 'Registrar un usuario nuevo (rol vendedor)' })
@@ -51,6 +57,30 @@ export class AuthController {
   })
   login(@Body() dto: LoginDto) {
     return this.auth.login(dto);
+  }
+
+  @Post('olvide-password')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Solicitar un enlace de recuperación de contraseña por correo',
+  })
+  @ApiResponse({
+    status: 200,
+    description:
+      'Responde siempre lo mismo, exista o no el correo, para no revelar qué cuentas existen',
+  })
+  olvidePassword(@Body() dto: OlvidePasswordDto) {
+    return this.recuperacion.solicitar(dto.correo);
+  }
+
+  @Post('restablecer-password')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Cambiar la contraseña con el token recibido por correo',
+  })
+  @ApiResponse({ status: 400, description: 'Enlace inválido, vencido o ya usado' })
+  restablecerPassword(@Body() dto: RestablecerPasswordDto) {
+    return this.recuperacion.restablecer(dto.token, dto.nuevaPassword);
   }
 
   @Get('perfil')
