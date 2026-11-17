@@ -9,6 +9,7 @@ import { AuthModule } from './auth/auth.module';
 import { AdministracionModule } from './administracion/administracion.module';
 import { ProductosModule } from './productos/productos.module';
 import { ProveedoresModule } from './proveedores/proveedores.module';
+import { MovimientosModule } from './movimientos/movimientos.module';
 
 @Module({
   imports: [
@@ -32,6 +33,7 @@ import { ProveedoresModule } from './proveedores/proveedores.module';
     AdministracionModule,
     ProveedoresModule,
     ProductosModule,
+    MovimientosModule,
   ],
   controllers: [AppController],
   providers: [AppService],
