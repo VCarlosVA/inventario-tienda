@@ -9,7 +9,7 @@ import {
   Post,
   UseGuards,
 } from '@nestjs/common';
-import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { Roles } from '../auth/roles.decorator';
 import { RolesGuard } from '../auth/roles.guard';
@@ -19,7 +19,7 @@ import { CreateCategoriaDto } from './dto/create-categoria.dto';
 import { UpdateCategoriaDto } from './dto/update-categoria.dto';
 
 // Consultar, crear y editar: cualquier usuario autenticado.
-// Eliminar y restaurar: solo administrador.
+// Eliminar, restaurar y ver eliminadas: solo administrador.
 @ApiTags('Categorías')
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -30,6 +30,14 @@ export class CategoriasController {
   @Get()
   findAll() {
     return this.service.findAll();
+  }
+
+  // Debe ir antes de ":id" para que "eliminadas" no se interprete como un id
+  @Get('eliminadas')
+  @Roles(Rol.ADMIN)
+  @ApiOperation({ summary: 'Listar categorías eliminadas (para poder restaurarlas)' })
+  findEliminadas() {
+    return this.service.findEliminadas();
   }
 
   @Get(':id')
@@ -52,6 +60,7 @@ export class CategoriasController {
 
   @Delete(':id')
   @Roles(Rol.ADMIN)
+  @ApiOperation({ summary: 'Eliminación lógica (bloqueada si tiene productos activos)' })
   remove(@Param('id', ParseIntPipe) id: number) {
     return this.service.remove(id);
   }

@@ -4,7 +4,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { IsNull, Not, Repository } from 'typeorm';
 import { Categoria } from './categoria.entity';
 import { CreateCategoriaDto } from './dto/create-categoria.dto';
 import { UpdateCategoriaDto } from './dto/update-categoria.dto';
@@ -18,6 +18,14 @@ export class CategoriasService {
 
   findAll() {
     return this.repo.find({ order: { nombre: 'ASC' } });
+  }
+
+  findEliminadas() {
+    return this.repo.find({
+      withDeleted: true,
+      where: { eliminadoEn: Not(IsNull()) },
+      order: { eliminadoEn: 'DESC' },
+    });
   }
 
   async findOne(id: number) {
@@ -41,6 +49,18 @@ export class CategoriasService {
 
   async remove(id: number) {
     await this.findOne(id);
+    // Se consulta con SQL para no depender del módulo de productos (evita una dependencia circular)
+    const filas: { n: number }[] = await this.repo.query(
+      `SELECT COUNT(*)::int AS n FROM productos
+        WHERE "categoriaId" = $1 AND "eliminadoEn" IS NULL`,
+      [id],
+    );
+    const n = filas[0]?.n ?? 0;
+    if (n > 0) {
+      throw new ConflictException(
+        `No se puede eliminar: la categoría tiene ${n} producto(s) activo(s). Reasígnalos o elimínalos primero.`,
+      );
+    }
     await this.repo.softDelete(id);
     return { mensaje: 'Categoría eliminada' };
   }
