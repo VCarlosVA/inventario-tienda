@@ -32,15 +32,19 @@ export class Usuario {
   @Column({ type: 'int', default: 0 })
   intentosFallidos: number;
 
-  @Column({ type: 'timestamp', nullable: true })
+  @Column({ type: 'timestamptz', nullable: true })
   bloqueadoHasta?: Date | null;
 
-  @CreateDateColumn()
+  // Los tokens emitidos antes de esta fecha dejan de valer (cierre de sesión, cambio de contraseña)
+  @Column({ type: 'timestamptz', nullable: true })
+  sesionesDesde?: Date | null;
+
+  @CreateDateColumn({ type: 'timestamptz' })
   creadoEn: Date;
 
-  @UpdateDateColumn()
+  @UpdateDateColumn({ type: 'timestamptz' })
   actualizadoEn: Date;
 
-  @DeleteDateColumn()
+  @DeleteDateColumn({ type: 'timestamptz' })
   eliminadoEn?: Date;
 }

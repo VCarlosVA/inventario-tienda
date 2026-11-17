@@ -31,9 +31,9 @@ export class JwtAuthGuard implements CanActivate {
       throw new UnauthorizedException('Falta el token de acceso');
     }
 
-    let payload: { sub: number };
+    let payload: { sub: number; iat: number };
     try {
-      payload = await this.jwt.verifyAsync<{ sub: number }>(token);
+      payload = await this.jwt.verifyAsync<{ sub: number; iat: number }>(token);
     } catch {
       throw new UnauthorizedException('Token inválido o vencido');
     }
@@ -42,6 +42,17 @@ export class JwtAuthGuard implements CanActivate {
     const usuario = await this.usuarios.findById(payload.sub);
     if (!usuario) {
       throw new UnauthorizedException('El usuario ya no existe');
+    }
+
+    // Cierre de sesión o cambio de contraseña: los tokens anteriores dejan de valer
+    // (iat va en segundos; se compara en segundos para no rechazar un login hecho justo después)
+    if (
+      usuario.sesionesDesde &&
+      payload.iat < Math.floor(usuario.sesionesDesde.getTime() / 1000)
+    ) {
+      throw new UnauthorizedException(
+        'La sesión ya no es válida. Inicia sesión de nuevo.',
+      );
     }
 
     // El rol sale de la base de datos, no del token: si cambia, se aplica de inmediato

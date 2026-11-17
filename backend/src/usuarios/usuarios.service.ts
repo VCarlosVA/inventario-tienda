@@ -28,33 +28,32 @@ export class UsuariosService {
       .getOne();
   }
 
+  // El rol siempre es vendedor: nunca se toma de la petición
   crear(datos: { nombre: string; correo: string; password: string }) {
     return this.repo.save(this.repo.create({ ...datos, rol: Rol.VENDEDOR }));
   }
 
   // ---------- Control de intentos de login ----------
-  // Toda la lógica de tiempo se calcula en SQL con la hora de la base de datos
-  // (NOW()), para no depender de la zona horaria del servidor Node
+  // Los cálculos de tiempo se hacen en SQL con la hora de la base de datos (NOW()).
 
-  // Si el bloqueo ya venció, reinicia el contador y quita el bloqueo
   async liberarSiVencido(id: number): Promise<void> {
     await this.repo.query(
       `UPDATE usuarios
           SET "intentosFallidos" = 0, "bloqueadoHasta" = NULL
         WHERE id = $1
           AND "bloqueadoHasta" IS NOT NULL
-          AND "bloqueadoHasta"::timestamptz <= NOW()`,
+          AND "bloqueadoHasta" <= NOW()`,
       [id],
     );
   }
 
   async segundosDeBloqueo(id: number): Promise<number> {
     const filas: { segundos: string }[] = await this.repo.query(
-      `SELECT CEIL(EXTRACT(EPOCH FROM ("bloqueadoHasta"::timestamptz - NOW()))) AS segundos
+      `SELECT CEIL(EXTRACT(EPOCH FROM ("bloqueadoHasta" - NOW()))) AS segundos
          FROM usuarios
         WHERE id = $1
           AND "bloqueadoHasta" IS NOT NULL
-          AND "bloqueadoHasta"::timestamptz > NOW()`,
+          AND "bloqueadoHasta" > NOW()`,
       [id],
     );
     return filas.length ? Number(filas[0].segundos) : 0;
@@ -78,7 +77,7 @@ export class UsuariosService {
     const filas: { intentos: number; bloqueado: boolean }[] =
       await this.repo.query(
         `SELECT "intentosFallidos" AS intentos,
-                ("bloqueadoHasta" IS NOT NULL AND "bloqueadoHasta"::timestamptz > NOW()) AS bloqueado
+                ("bloqueadoHasta" IS NOT NULL AND "bloqueadoHasta" > NOW()) AS bloqueado
            FROM usuarios
           WHERE id = $1`,
         [id],
@@ -95,6 +94,14 @@ export class UsuariosService {
           SET "intentosFallidos" = 0, "bloqueadoHasta" = NULL
         WHERE id = $1
           AND ("intentosFallidos" > 0 OR "bloqueadoHasta" IS NOT NULL)`,
+      [id],
+    );
+  }
+
+  // Invalida todos los tokens emitidos hasta este momento
+  async cerrarSesiones(id: number): Promise<void> {
+    await this.repo.query(
+      `UPDATE usuarios SET "sesionesDesde" = NOW() WHERE id = $1`,
       [id],
     );
   }

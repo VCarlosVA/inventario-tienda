@@ -18,12 +18,13 @@ export class Categoria {
   @Column({ type: 'text', nullable: true })
   descripcion?: string;
 
-  @CreateDateColumn()
+  @CreateDateColumn({ type: 'timestamptz' })
   creadoEn: Date;
 
-  @UpdateDateColumn()
+  @UpdateDateColumn({ type: 'timestamptz' })
   actualizadoEn: Date;
 
-  @DeleteDateColumn()
+  // Eliminación lógica: null = activa, con fecha = eliminada
+  @DeleteDateColumn({ type: 'timestamptz' })
   eliminadoEn?: Date;
 }

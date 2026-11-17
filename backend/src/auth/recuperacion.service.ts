@@ -104,7 +104,8 @@ export class RecuperacionService {
       // Cambia la contraseña y desbloquea la cuenta si estaba bloqueada
       await m.query(
         `UPDATE usuarios
-            SET password = $1, "intentosFallidos" = 0, "bloqueadoHasta" = NULL
+            SET password = $1, "intentosFallidos" = 0, "bloqueadoHasta" = NULL,
+                "sesionesDesde" = NOW()
           WHERE id = $2`,
         [passwordCifrada, usuarioId],
       );

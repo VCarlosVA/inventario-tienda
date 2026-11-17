@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtModule } from '@nestjs/jwt';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { BitacoraModule } from '../bitacora/bitacora.module';
 import { UsuariosModule } from '../usuarios/usuarios.module';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
@@ -14,6 +15,7 @@ import { TokenRecuperacion } from './token-recuperacion.entity';
 @Module({
   imports: [
     UsuariosModule,
+    BitacoraModule,
     TypeOrmModule.forFeature([TokenRecuperacion]),
     JwtModule.registerAsync({
       inject: [ConfigService],

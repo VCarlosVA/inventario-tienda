@@ -8,10 +8,14 @@ import {
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { compare, hash, hashSync } from 'bcryptjs';
+import { EventoAcceso } from '../bitacora/bitacora-acceso.entity';
+import { BitacoraService } from '../bitacora/bitacora.service';
 import { UsuariosService } from '../usuarios/usuarios.service';
 import { CaptchaService } from './captcha.service';
+import type { ContextoRequest } from './contexto-request';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
+import type { UsuarioAutenticado } from './jwt-auth.guard';
 import { evaluarFortaleza } from './password-strength';
 
 const COSTO_BCRYPT = 10;
@@ -36,6 +40,7 @@ export class AuthService {
     private readonly jwt: JwtService,
     private readonly config: ConfigService,
     private readonly captcha: CaptchaService,
+    private readonly bitacora: BitacoraService,
   ) {
     this.maxIntentos = Number(config.get('LOGIN_MAX_INTENTOS') ?? 3);
     this.minutosBloqueo = Number(config.get('LOGIN_BLOQUEO_MINUTOS') ?? 5);
@@ -78,7 +83,7 @@ export class AuthService {
     }
   }
 
-  async login(dto: LoginDto) {
+  async login(dto: LoginDto, contexto: ContextoRequest) {
     // 1) El CAPTCHA se comprueba primero. Si falla, no se mira la contraseña
     //    y NO cuenta como intento fallido para el bloqueo de la cuenta.
     if (!this.captcha.validar(dto.captchaId, dto.captchaTexto)) {
@@ -118,6 +123,14 @@ export class AuthService {
 
     await this.usuarios.reiniciarIntentos(usuario.id);
 
+    await this.bitacora.registrar({
+      usuarioId: usuario.id,
+      correo: usuario.correo,
+      evento: EventoAcceso.INGRESO,
+      ip: contexto.ip,
+      userAgent: contexto.userAgent,
+    });
+
     const access_token = await this.jwt.signAsync({
       sub: usuario.id,
       correo: usuario.correo,
@@ -137,6 +150,19 @@ export class AuthService {
         rol: usuario.rol,
       },
     };
+  }
+
+  // Cierra todas las sesiones del usuario (en todos sus dispositivos) y registra la salida
+  async logout(usuario: UsuarioAutenticado, contexto: ContextoRequest) {
+    await this.usuarios.cerrarSesiones(usuario.id);
+    await this.bitacora.registrar({
+      usuarioId: usuario.id,
+      correo: usuario.correo,
+      evento: EventoAcceso.SALIDA,
+      ip: contexto.ip,
+      userAgent: contexto.userAgent,
+    });
+    return { mensaje: 'Sesión cerrada correctamente' };
   }
 
   private cuentaBloqueada(segundos: number) {

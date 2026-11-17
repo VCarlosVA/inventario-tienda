@@ -5,6 +5,7 @@ import {
   HttpCode,
   HttpStatus,
   Post,
+  Req,
   UseGuards,
 } from '@nestjs/common';
 import {
@@ -13,7 +14,9 @@ import {
   ApiResponse,
   ApiTags,
 } from '@nestjs/swagger';
+import type { Request } from 'express';
 import { AuthService } from './auth.service';
+import { contextoDe } from './contexto-request';
 import { LoginDto } from './dto/login.dto';
 import { OlvidePasswordDto } from './dto/olvide-password.dto';
 import { RegisterDto } from './dto/register.dto';
@@ -55,8 +58,19 @@ export class AuthController {
     description:
       'Cuenta bloqueada tras 3 intentos fallidos. Indica el tiempo restante',
   })
-  login(@Body() dto: LoginDto) {
-    return this.auth.login(dto);
+  login(@Body() dto: LoginDto, @Req() req: Request) {
+    return this.auth.login(dto, contextoDe(req));
+  }
+
+  @Post('logout')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: 'Cerrar sesión (invalida todos los tokens del usuario y registra la salida)',
+  })
+  logout(@UsuarioActual() usuario: UsuarioAutenticado, @Req() req: Request) {
+    return this.auth.logout(usuario, contextoDe(req));
   }
 
   @Post('olvide-password')
